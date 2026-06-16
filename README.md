@@ -41,12 +41,21 @@ CIRCT aims to make hardware compiler development more agile, enabling researcher
 4. Generate an output circuit for verification/implementation.
 
 ---
-## 1.1 Install CIRCT Tools
-Build and run the docker container (may need sudo):
+## 1.1 Install CIRCT Tools 
+Clone repository first then either:
+* Docker Option (may need sudo)
 ```
 docker build -t circt .
 docker run -it circt
 ```
+* VSCode + Dev Container Option
+```
+code .
+Ctrl+Shift+P
+Dev Containers: Reopen in Container
+```
+
+---
 
 From within the docker container you should now be able to use CIRCT's pre-built tools.
 `circt-opt --version` should produce:
