@@ -1,44 +1,48 @@
 * [What is CIRCT?](#what-is-circt)
-* [CIRCT Tutorial](#circt-tutorial)
-    * [Getting Started](#getting-started)
-    * [Loading a Design](#loading-a-design)
-    * [Optimizing a Design](#optimizing-a-design)
-    * [Verifying a Transformation](#verifying-a-transformation)
+* [Tutorial Part 1: Basics](#tutorial-part-1-basics)
+    * [1.1 Install CIRCT Tools](#11-install-circt-tools)
+    * [1.2 Compiling a Design](#12-compiling-a-design)
+    * [1.3 Optimizing a Design](#13-optimizing-a-design)
+    * [1.4 Verifying a Transformation](#14-verifying-a-transformation)
+    * [1.5 EDA Integration Generating Verilog](#15-eda-integration-generating-verilog)
+* [Tutorial Part 2: Datapath Synthesis](#tutorial-part-2-datapath-synthesis)
+	* [2.1 Datapath Dialect](#21-datapath-dialect)
+	* [2.2 Synthesizing a Design](#22-synthesizing-a-design)
+	* [2.3 EDA Integration Generating AIGER](#23-eda-integration-generating-aiger)
 
+---
 # What is CIRCT?
 
-CIRCT (Circuit IR Compilers and Tools) is an open-source compiler infrastructure project for digital hardware design.
-It provides a set of reusable compiler dialects, optimizations, and transformation passes built on LLVM/MLIR.
+[CIRCT (Circuit IR Compilers and Tools)](https://circt.llvm.org/) is an open-source compiler infrastructure project for digital hardware design.
+It provides reusable compiler dialects, optimizations, and passes built on MLIR.
 CIRCT enables hardware designers and compiler developers to express, transform, and generate circuit representations for FPGAs, ASICs, and other digital systems.
 
-Key aspects:
-
+---
+### Key Features:
 - A hardware-centered IR and dialect ecosystem for digital circuit design.
 - Reusable passes for lowering, verification, and code generation.
-- Integration with MLIR and LLVM for compiler-based hardware flows.
+- Integration with [MLIR](https://mlir.llvm.org/) and LLVM for compiler-based hardware flows.
 - Support for multiple input formats and backends, including FIRRTL, HW, and system-level representations.
 
-CIRCT was inspired by the need for a more modular and reusable hardware compiler infrastructure.
-Traditional hardware design flows were often monolithic and hard to extend.
-The CIRCT project draws inspiration from:
-
-- LLVM and MLIR: using compiler infrastructure patterns to make hardware transformation passes composable.
-- Hardware description languages like Verilog, FIRRTL, and Chisel.
-- Prior work in high-level synthesis and domain-specific IRs for hardware.
+---
+### CIRCT Inspiration
+- LLVM and [MLIR](https://mlir.llvm.org/): using compiler infrastructure patterns to make hardware transformation passes composable.
+- Hardware description languages like [Chisel](https://www.chisel-lang.org/).
 - The desire to unify hardware and software compiler techniques in a shared framework.
 
 CIRCT aims to make hardware compiler development more agile, enabling researchers and engineers to experiment with new optimizations and hardware dialects.
 
-# CIRCT Tutorial
+---
+# Tutorial Part 1: Basics
 
-In this tutorial we will cover the following:
 1. Install CIRCT tools in a docker image.
-2. Load a hardware design representation.
-3. Apply CIRCT transformations and analysis passes.
-4. Generate a target output for verification or implementation.
+2. Compile a hardware design to CIRCT IR.
+3. Apply CIRCT optimization passes.
+4. Generate an output circuit for verification/implementation.
 
-## Getting Started
-Build and run the docker container:
+---
+## 1.1 Install CIRCT Tools
+Build and run the docker container (may need sudo):
 ```
 docker build -t circt .
 docker run -it circt
@@ -53,9 +57,10 @@ LLVM (http://llvm.org/):
 CIRCT firtool-1.147.0
 ```
 
-## Loading a Design
-Now lets look at how to get an existing design into CIRCT:
-```sv
+---
+## 1.2 Compiling a Design
+
+```verilog
 // rtl/fma.sv
 module fma (
     input  wire [3:0] a,
@@ -68,11 +73,16 @@ module fma (
 endmodule
 ```
 
-If we run: `circt-verilog rtl/fma.sv -o rtl/fma.mlir` we get CIRCT IR out:
+System Verilog feature support in `circt-verilog` documented at [sv-tests](https://chipsalliance.github.io/sv-tests-results/). This is an ongoing effort.
+
+---
+```
+circt-verilog rtl/fma.sv -o rtl/fma.mlir
+```
+
 ```mlir
-// rtl/fma.mlir
 module {
-  hw.module @fma(in %a : i4, in %b : i4, in %c : i4, out d : i9) {
+  hw.module @fma(in %a: i4, in %b: i4, in %c: i4, out d: i9){
     %c0_i5 = hw.constant 0 : i5
     %0 = comb.concat %c0_i5, %a : i5, i4
     %1 = comb.concat %c0_i5, %b : i5, i4
@@ -84,24 +94,34 @@ module {
 }
 ```
 
-We can see two dialects in action here:
-- **comb**: combinatorial logic constructs e.g., add, or
-- **hw**: structural hardware constructs e.g., modules, ports
+- **comb dialect**: combinatorial logic e.g., add
+- **hw dialect**: structural hardware e.g., modules
 
-The System Verilog features supported by `circt-verilog` are best documented in the [sv-tests suite](https://chipsalliance.github.io/sv-tests-results/), but this is an ongoing effort to add support.
+--- 
+## 1.3 Optimizing a Design
+* CIRCT is a compiler stack - it's all **passes**! 
+* These incantations look scary but in many cases they are hidden behind nice tools 
+* LLMs are good at CIRCT
+---
+### `circt-opt`
 
-## Optimizing a Design
-CIRCT is a compiler stack - it's all about **passes**! 
-These incantations look scary but in many cases they are hidden behind nice tools that make life much easier (otherwise LLMs are pretty good at CIRCT). 
+```
+circt-opt <in.mlir> --<pass 1> ... -o <out.mlir>
+```
 
-Let's try out a couple of passes using the godfather tool `circt-opt`:
+* **comb-int-range-narrowing** - operator width reduction based on an interval analysis (e.g., `a[3:0]*b[3:0]`  fits in 8-bits rather than 9)
+* **canonicalize** - basic hardware optimizations strictly improving area and delay e.g., zext(res[7:0])[7:0] -> res[7:0]
 
-`circt-opt rtl/fma.mlir --comb-int-range-narrowing  --canonicalize -o rtl/fma_opt.mlir`
+---
+```
+circt-opt rtl/fma.mlir --comb-int-range-narrowing 
+                       --canonicalize 
+                       -o rtl/fma_opt.mlir
+```
 
 ```mlir
-// rtl/fma_opt.mlir
 module {
-  hw.module @fma(in %a : i4, in %b : i4, in %c : i4, out d : i9) {
+  hw.module @fma(in %a: i4, in %b: i4, in %c: i4, out d:i9){
     %false = hw.constant false
     %c0_i4 = hw.constant 0 : i4
     %0 = comb.concat %c0_i4, %a : i4, i4
@@ -115,44 +135,62 @@ module {
 }
 ```
 
-What are these passes doing?
-* *comb-int-range-narrowing* - performs operator width reduction based on an interval analysis (e.g., the multiplication result fits within 8-bits rather than 9)
-* *canonicalize* - classic hardware optimizations that strictly improve area and delay e.g., zext(res[7:0])[7:0] -> res[7:0]
-
-### Exercise
+---
+### Exercise 1 (2 mins)
 Try swapping the order of the passes in the command? How does the output change?
 
-## Verifying a Transformation
-Of course, you're a circuit designer so you don't trust research tools... Fortunately, we provide a way to mark our own homework using a logical equivalence checker called `circt-lec`:
+---
+## 1.4 Verifying a Transformation
+Of course, you don't trust research tools... 
 
-General Usage: `circt-lec --c1 <module_name_1> <design_1.mlir> --c2 <module_name_2> <design_2.mlir>`
+Fortunately, we provide a way to mark our own homework using a logical equivalence checker called `circt-lec`
 
-Our specific example: 
-`circt-lec --c1 fma rtl/fma.mlir --c2 fma rtl/fma_opt.mlir`
+---
+### `circt-lec`
+
+General:
+ ```
+circt-lec --c1 <module_name_1> <design_1.mlir> 
+           --c2 <module_name_2> <design_2.mlir>
+ ```
+
+Our example: 
+```
+circt-lec --c1 fma rtl/fma.mlir 
+          --c2 fma rtl/fma_opt.mlir
+```
 
 Which should return: `c1 == c2`
 
-How does `circt-lec` work? 
+---
+### How does `circt-lec` work? 
 1. It constructs a miter circuit that instantiates each design and asserts identical outputs when supplied with identical inputs 
 2. The miter circuit and both modules are lowered to SMT
 3. The SMT query is discharged to Z3 which returns `unsat` if the two modules are logically equivalent
 
+---
+### Aside Bounded Model Checking
 CIRCT has support for [bounded model checking](https://circt.llvm.org/docs/Tools/circt-bmc/) through `circt-bmc`, which we will not cover in this tutorial.
 
-### Exercise (5 mins)
-Have a go at breaking one of the designs by editing `rtl/fma_opt.mlir` and check that `circt-lec` returns `c1 != c2`? (unfortunately we can't generate a counter-example easily right now).
+---
+### Exercise 2 (5 mins)
+Break the design by editing `rtl/fma_opt.mlir` and check that `circt-lec` returns `c1 != c2`? 
 
-## Generating Verilog
+Unfortunately, we can't generate a counter-example easily right now.
+
+---
+## 1.5 EDA Integration Generating Verilog
 A classic CIRCT design flow is:
 1. Parse a design and generate CIRCT IR
 2. Optimize the CIRCT IR and verify the correctness
 3. Generate Verilog to hand-off to downstream tools (e.g., Synopsys/Cadence/Altera/Xilinx)
 
-Given that we've now got some optimized and correct mlir (`rtl/fma_opt.mlir`), we can generate Verilog out:
-
-`circt-opt --export-verilog -o rtl/fma_opt.mlir`
-
+---
 ```
+circt-opt rtl/fma_opt.mlir --export-verilog
+```
+
+```verilog
 // Generated by CIRCT firtool-1.147.0
 module fma(     // rtl/fma_opt.mlir:2:3
   input  [3:0] a,       // rtl/fma_opt.mlir:2:21
@@ -165,15 +203,161 @@ module fma(     // rtl/fma_opt.mlir:2:3
 endmodule
 ```
 
-### Exercise (5 mins)
+---
+### Exercise 3 (5 mins)
 1. Modify the command above to save the verilog to a file?
 2. Use `circt-verilog` to compile the generated verilog back to CIRCT IR?
-3. Use `circt-lec` to verify that the generated verilog and original CIRCT IR are equivalent?
+3. Use `circt-lec` to verify the round-trip preserved equivalence?
 
-## Synthesizing a Design
-Instead of generating Verilog, we can also synthesize a design using `circt-synth`, that lowers a design to an And-Inverter Graph (AIG).
+---
+# Tutorial Part 2: Datapath Synthesis
+[Back to the slides]()! 
+1. Convert to `datapath`
+2. Logic synthesis
+3. Generate AIGER format
 
-`circt-synth rtl/fma_opt.mlir --analysis-output=results -o rtl/fma_opt_aiger.mlir`
+---
+## 2.1 Datapath Dialect
+```
+circt-verilog rtl/dot_product.sv -o rtl/dot_product.mlir
+```
 
-If we look at the analysis-output we get a summary of the number of AIG gates used along with the critical path
+```mlir
+module {
+  hw.module @dot_product(in %a : i8, in %b : i8, in %c : i8, in %d : i8, out out : i16) {
+    %c0_i8 = hw.constant 0 : i8
+    %0 = comb.concat %c0_i8, %a : i8, i8 // zext(a)
+    %1 = comb.concat %c0_i8, %b : i8, i8 // zext(b)
+    %2 = comb.mul %0, %1 : i16 // ab = zext(a)*zext(b)
+    %3 = comb.concat %c0_i8, %c : i8, i8 // zext(c)
+    %4 = comb.concat %c0_i8, %d : i8, i8 // zext(d)
+    %5 = comb.mul %3, %4 : i16  // cd = zext(c)*zext(d)
+    %6 = comb.add %2, %5 : i16           // ab + cd
+    hw.output %6 : i16
+  }
+}
+```
 
+---
+* Convert between dialects using passes (often called lowering)
+* `--convert-<dialect>-to-<dialect>`
+* `--convert-comb-to-datapath`
+---
+```
+circt-opt rtl/dot_product.mlir --convert-comb-to-datapath
+```
+
+```mlir
+hw.module @dot_product(in %a : i8, in %b : i8, in %c : i8, in %d : i8, out out : i16) {
+  %c0_i8 = hw.constant 0 : i8
+  %0 = comb.concat %c0_i8, %a : i8, i8
+  %1 = comb.concat %c0_i8, %b : i8, i8
+  // Construct partial products for a*b
+  %2:16 = datapath.partial_product %0, %1 : (i16, i16) -> (i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16)
+  // Reduce partial products for a*b
+  %3:2 = datapath.compress %2#0, %2#1, %2#2, %2#3, %2#4, %2#5, %2#6, %2#7, %2#8, %2#9, %2#10, %2#11, %2#12, %2#13, %2#14, %2#15 : i16 [16 -> 2]
+  %4 = comb.add bin %3#0, %3#1 : i16 // == a*b
+  
+  %5 = comb.concat %c0_i8, %c : i8, i8
+  %6 = comb.concat %c0_i8, %d : i8, i8
+  // Construct partial products for c*d
+  %7:16 = datapath.partial_product %5, %6 : (i16, i16) -> (i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16, i16)
+  // Reduce partial products for c*d
+  %8:2 = datapath.compress %7#0, %7#1, %7#2, %7#3, %7#4, %7#5, %7#6, %7#7, %7#8, %7#9, %7#10, %7#11, %7#12, %7#13, %7#14, %7#15 : i16 [16 -> 2]
+  %9 = comb.add bin %8#0, %8#1 : i16 // == c*d
+  %10 = comb.add %4, %9 : i16 // a*b + c*d
+  hw.output %10 : i16
+}
+```
+
+---
+### Optimization Opportunities
+1. `datapath.partial_product` produces 16 partial products for an 8-bit multiplication???
+2. Do we need two separate `datapath.compress` operations?
+
+These transformations are automated using CIRCT's `--canonicalize` pass. 
+
+---
+```
+circt-opt circt-opt rtl/dot_product.mlir --convert-comb-to-datapath 
+                                         --canonicalize
+```
+
+```mlir
+hw.module @dot_product(in %a : i8, in %b : i8, in %c : i8, in %d : i8, out out : i16) {
+  %c0_i8 = hw.constant 0 : i8
+  %0 = comb.concat %c0_i8, %a : i8, i8
+  %1 = comb.concat %c0_i8, %b : i8, i8
+  // 8-bit multiplier produces 8 partial products - GOOD!
+  %2:8 = datapath.partial_product %0, %1 : (i16, i16) -> (i16, i16, i16, i16, i16, i16, i16, i16)
+  %3 = comb.concat %c0_i8, %c : i8, i8
+  %4 = comb.concat %c0_i8, %d : i8, i8
+  // 8-bit multiplier produces 8 partial products - GOOD!
+  %5:8 = datapath.partial_product %3, %4 : (i16, i16) -> (i16, i16, i16, i16, i16, i16, i16, i16)
+  // Single compress operation - GOOD!
+  %6:2 = datapath.compress %2#0, %2#1, %2#2, %2#3, %2#4, %2#5, %2#6, %2#7, %5#0, %5#1, %5#2, %5#3, %5#4, %5#5, %5#6, %5#7 : i16 [16 -> 2]
+  // Single carry-propagate adder - GOOD!
+  %7 = comb.add bin %6#0, %6#1 : i16
+  hw.output %7 : i16
+}
+```
+
+---
+### Exercise 4 (10 mins): 
+1. Determine what computation `rtl/ex4.mlir` implements?
+2. Try to convert comb to datapath, apply the canonicalization pass and then convert back to comb? What has happened to the design?
+
+---
+## 2.2 Logic Synthesis
+* Automatically synthesize a design using `circt-synth` 
+* lowers to `synth` dialect == gate-level
+* Default is an And-Inverter Graph (AIG)
+
+---
+### `circt-synth`
+
+General:
+```
+circt-synth <in.mlir> --analysis-output=<dir> -o <out.mlir>
+```
+
+Our example: 
+```
+circt-synth rtl/dot_product.mlir --analysis-output=analysis 
+         -o rtl/dot_product_aiger.mlir
+```
+
+
+---
+### Analysis Output
+```
+> cat analysis/longest_path.txt
+# Longest Path Analysis result for "dot_product"
+Found 400 paths
+Found 16 unique end points 
+Maximum path delay: 33
+```
+
+```
+> cat analysis/resource_usage.txt
+Resource Usage Analysis for module: dot_product
+========================================
+Total:
+  <unknown>:         33
+  synth.aig.and_inv: 976
+```
+
+---
+## 2.3 EDA Integration Generating AIGER
+```
+circt-translate rtl/dot_product_aiger.mlir --export-aiger 
+             -o rtl/dot_product.aiger
+```
+
+This format is accepted by [ABC](https://people.eecs.berkeley.edu/~alanmi/abc/) and [Yosys](https://github.com/yosyshq/yosys), which support technology mapping to various FPGAs and ASIC libraries. Technology mapping in `circt-synth` is WIP.
+
+---
+### Exercise 5 (15 mins)
+1. Chain commands we've learnt together to parse `rtl/ex5.sv`, and synthesize an AIG level representation? How many And-Inverter gates does it take?
+2. Copy `rtl/ex5.sv` and optimize the copy **by-hand** to see if you can reduce the And-Inverter count? Can you beat my best attempt 54 And Inverters?
+3. Using `circt-lec` verify the hand-optimized design against the original `rtl/ex5.sv`?
