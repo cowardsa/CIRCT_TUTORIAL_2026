@@ -114,8 +114,8 @@ circt-opt <in.mlir> --<pass 1> ... -o <out.mlir>
 
 ---
 ```
-circt-opt rtl/fma.mlir --comb-int-range-narrowing 
-                       --canonicalize 
+circt-opt rtl/fma.mlir --comb-int-range-narrowing \
+                       --canonicalize             \
                        -o rtl/fma_opt.mlir
 ```
 
@@ -156,7 +156,7 @@ circt-lec --c1 <module_name_1> <design_1.mlir>
 
 Our example: 
 ```
-circt-lec --c1 fma rtl/fma.mlir 
+circt-lec --c1 fma rtl/fma.mlir \
           --c2 fma rtl/fma_opt.mlir
 ```
 
@@ -174,7 +174,7 @@ CIRCT has support for [bounded model checking](https://circt.llvm.org/docs/Tools
 
 ---
 ### Exercise 2 (5 mins)
-Break the design by editing `rtl/fma_opt.mlir` and check that `circt-lec` returns `c1 != c2`? 
+Copy `rtl/fma_opt.mlir` to a new file then break it by editing (vim & nano installed)  and check that `circt-lec` returns `c1 != c2`? 
 
 Unfortunately, we can't generate a counter-example easily right now.
 
@@ -187,7 +187,7 @@ A classic CIRCT design flow is:
 
 ---
 ```
-circt-opt rtl/fma_opt.mlir --export-verilog
+firtool rtl/fma_opt.mlir
 ```
 
 ```verilog
@@ -279,7 +279,7 @@ These transformations are automated using CIRCT's `--canonicalize` pass.
 
 ---
 ```
-circt-opt circt-opt rtl/dot_product.mlir --convert-comb-to-datapath 
+circt-opt rtl/dot_product.mlir --convert-comb-to-datapath \
                                          --canonicalize
 ```
 
@@ -305,7 +305,8 @@ hw.module @dot_product(in %a : i8, in %b : i8, in %c : i8, in %d : i8, out out :
 ---
 ### Exercise 4 (10 mins): 
 1. Determine what computation `rtl/ex4.mlir` implements?
-2. Try to convert comb to datapath, apply the canonicalization pass and then convert back to comb? What has happened to the design?
+2. Write `rtl/ex4.sv` and use `circt-lec` to verify it equivalent to `rtl/ex4.mlir`
+3. Apply the canonicalization pass to `rtl/ex4.mlir` and then convert back to comb? What has happened to the design?
 
 ---
 ## 2.2 Logic Synthesis
@@ -323,7 +324,7 @@ circt-synth <in.mlir> --analysis-output=<dir> -o <out.mlir>
 
 Our example: 
 ```
-circt-synth rtl/dot_product.mlir --analysis-output=analysis 
+circt-synth rtl/dot_product.mlir --analysis-output=analysis \
          -o rtl/dot_product_aiger.mlir
 ```
 
@@ -350,7 +351,7 @@ Total:
 ---
 ## 2.3 EDA Integration Generating AIGER
 ```
-circt-translate rtl/dot_product_aiger.mlir --export-aiger 
+circt-translate rtl/dot_product_aiger.mlir --export-aiger \
              -o rtl/dot_product.aiger
 ```
 
