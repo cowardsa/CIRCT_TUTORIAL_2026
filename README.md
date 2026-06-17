@@ -44,7 +44,6 @@ CIRCT aims to make hardware compiler development more agile, enabling researcher
 
 ---
 ## 1.1 Install CIRCT Tools 
-Clone the tutorial repository first:
 ```
 git clone https://github.com/cowardsa/CIRCT_TUTORIAL_2026
 cd CIRCT_TUTORIAL_2026
@@ -93,10 +92,6 @@ System Verilog feature support in `circt-verilog` documented at [sv-tests](https
 
 ---
 ```
-circt-verilog rtl/fma.sv -o rtl/fma.mlir
-```
-or print the MLIR directly (useful for quick insight):
-```
 circt-verilog rtl/fma.sv
 ```
 
@@ -119,6 +114,14 @@ module {
 - The mnemonic before the dot names the dialect (`comb.add`, `hw.module`); `i4`, `i5`, etc. are types from MLIR's builtin dialect, which is implicit in the IR.
 
 --- 
+To save the output to a file:
+```
+circt-verilog rtl/fma.sv -o rtl/fma.mlir
+```
+
+
+---
+
 ## 1.3 Optimizing a Design
 * CIRCT is a compiler stack - it's all **passes**! 
 * These incantations look scary but in many cases they are hidden behind nice tools 
