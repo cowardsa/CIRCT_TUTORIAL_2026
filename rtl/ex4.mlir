@@ -1,5 +1,5 @@
 module {
-  hw.module @ex3(in %a : i4, in %b : i4, in %c : i4, out d : i9) {
+  hw.module @ex4(in %a : i4, in %b : i4, in %c : i4, out d : i9) {
     %0 = comb.extract %a from 3 : (i4) -> i1
     %1 = comb.replicate %0 : (i1) -> i5
     %2 = comb.concat %1, %a : i5, i4
@@ -16,4 +16,3 @@ module {
     hw.output %12 : i9
   }
 }
-

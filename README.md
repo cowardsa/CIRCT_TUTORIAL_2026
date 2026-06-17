@@ -9,6 +9,8 @@
 	* [2.1 Datapath Dialect](#21-datapath-dialect)
 	* [2.2 Synthesizing a Design](#22-synthesizing-a-design)
 	* [2.3 EDA Integration Generating AIGER](#23-eda-integration-generating-aiger)
+* [Command Glossary](#command-glossary)
+* [Authors](#authors)
 
 ---
 # What is CIRCT?
@@ -42,7 +44,12 @@ CIRCT aims to make hardware compiler development more agile, enabling researcher
 
 ---
 ## 1.1 Install CIRCT Tools 
-Clone repository first then either:
+Clone the tutorial repository first:
+```
+git clone https://github.com/cowardsa/CIRCT_TUTORIAL_2026
+cd CIRCT_TUTORIAL_2026
+```
+Then either:
 * Docker Option (may need sudo)
 ```
 docker build -t circt .
@@ -88,6 +95,10 @@ System Verilog feature support in `circt-verilog` documented at [sv-tests](https
 ```
 circt-verilog rtl/fma.sv -o rtl/fma.mlir
 ```
+or print the MLIR directly (useful for quick insight):
+```
+circt-verilog rtl/fma.sv
+```
 
 ```mlir
 module {
@@ -103,8 +114,9 @@ module {
 }
 ```
 
-- **comb dialect**: combinatorial logic e.g., add
-- **hw dialect**: structural hardware e.g., modules
+- **comb dialect**: combinational logic operations e.g., add, xor, mux
+- **hw dialect**: structural hardware descriptions e.g., modules, ports, instances
+- The mnemonic before the dot names the dialect (`comb.add`, `hw.module`); `i4`, `i5`, etc. are types from MLIR's builtin dialect, which is implicit in the IR.
 
 --- 
 ## 1.3 Optimizing a Design
@@ -151,6 +163,7 @@ Try swapping the order of the passes in the command? How does the output change?
 ---
 ## 1.4 Verifying a Transformation
 Of course, you don't trust research tools... 
+(And of course, industrial tools are always exact... except when AMD/Xilinx documents [IEEE-754 partial compliance](https://docs.amd.com/r/en-US/ug1399-vitis-hls/Floats-and-Doubles) and [deviations](https://docs.amd.com/api/khub/documents/ym1A7qsltTGP_saZFTrikQ/content).)
 
 Fortunately, we provide a way to mark our own homework using a logical equivalence checker called `circt-lec`
 
@@ -173,9 +186,9 @@ Which should return: `c1 == c2`
 
 ---
 ### How does `circt-lec` work? 
-1. It constructs a miter circuit that instantiates each design and asserts identical outputs when supplied with identical inputs 
-2. The miter circuit and both modules are lowered to SMT
-3. The SMT query is discharged to Z3 which returns `unsat` if the two modules are logically equivalent
+1. It constructs a miter circuit (a wrapper comparing both designs) that instantiates each design and asserts identical outputs when supplied with identical inputs.
+2. The miter circuit and both modules are lowered to SMT (Satisfiability Modulo Theories).
+3. The SMT query is solved by Z3: `unsat` means no counterexample exists, so the circuits are equivalent; `sat` means Z3 found an input where they differ.
 
 ---
 ### Aside Bounded Model Checking
@@ -189,6 +202,7 @@ Unfortunately, we can't generate a counter-example easily right now.
 
 ---
 ## 1.5 EDA Integration Generating Verilog
+`firtool` is CIRCT's tool for emitting Verilog from CIRCT IR.
 A classic CIRCT design flow is:
 1. Parse a design and generate CIRCT IR
 2. Optimize the CIRCT IR and verify the correctness
@@ -220,7 +234,7 @@ endmodule
 
 ---
 # Tutorial Part 2: Datapath Synthesis
-[Back to the slides]()! 
+[Back to the slides](TODO)!
 1. Convert to `datapath`
 2. Logic synthesis
 3. Generate AIGER format
@@ -248,7 +262,8 @@ module {
 ```
 
 ---
-* Convert between dialects using passes (often called lowering)
+* Some passes convert between dialects; this is often called lowering, but dialect conversion is a transformation and can also be a promotion.
+* Compilation flows usually lower from higher-level IR to lower-level IR.
 * `--convert-<dialect>-to-<dialect>`
 * `--convert-comb-to-datapath`
 ---
@@ -312,10 +327,12 @@ hw.module @dot_product(in %a : i8, in %b : i8, in %c : i8, in %d : i8, out out :
 ```
 
 ---
-### Exercise 4 (10 mins): 
+### Exercise 4 (15 mins): 
 1. Determine what computation `rtl/ex4.mlir` implements?
-2. Write `rtl/ex4.sv` and use `circt-lec` to verify it equivalent to `rtl/ex4.mlir`
+2. Write `rtl/ex4.sv` and use `circt-lec` to verify it is equivalent to `rtl/ex4.mlir`
 3. Apply the canonicalization pass to `rtl/ex4.mlir` and then convert back to comb? What has happened to the design?
+
+Hint: extract, replicate, and concatenate implement sign extension, e.g., `wire [8:0] sext_a = {{5{a[3]}}, a};`.
 
 ---
 ## 2.2 Logic Synthesis
@@ -368,6 +385,23 @@ This format is accepted by [ABC](https://people.eecs.berkeley.edu/~alanmi/abc/) 
 
 ---
 ### Exercise 5 (15 mins)
-1. Chain commands we've learnt together to parse `rtl/ex5.sv`, and synthesize an AIG level representation? How many And-Inverter gates does it take?
+1. Chain commands we've learnt together to parse `rtl/ex5.sv` and synthesize an AIG-level representation? How many And-Inverter gates does it take?
 2. Copy `rtl/ex5.sv` and optimize the copy **by-hand** to see if you can reduce the And-Inverter count? Can you beat my best attempt 54 And Inverters?
-3. Using `circt-lec` verify the hand-optimized design against the original `rtl/ex5.sv`?
+3. Use `circt-lec` to verify the hand-optimized design against the original `rtl/ex5.sv`?
+
+Hint: export AIGER from the `circt-synth` output, not directly from the MLIR generated by `circt-verilog`.
+
+---
+# Command Glossary
+- `circt-verilog`: parses SystemVerilog and emits CIRCT MLIR.
+- `circt-opt`: runs CIRCT/MLIR transformation and optimization passes.
+- `circt-lec`: checks logical equivalence between two CIRCT modules.
+- `firtool`: emits Verilog from CIRCT IR.
+- `circt-synth`: synthesizes CIRCT IR to lower-level logic, such as AIG.
+- `circt-translate`: converts CIRCT MLIR to external formats, such as AIGER.
+- `z3`: SMT solver used by `circt-lec` to prove equivalence or find a counterexample.
+
+---
+# Authors
+- Sam Coward ([@cowardsa](https://github.com/cowardsa))
+- Louis Ledoux ([@Bynaryman](https://github.com/Bynaryman))
