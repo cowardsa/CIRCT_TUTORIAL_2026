@@ -27,3 +27,4 @@ ENV PATH="/opt/circt/bin:${PATH}"
 WORKDIR /workspace
 
 COPY rtl /workspace/rtl
+COPY README.md /workspace/.
