@@ -237,7 +237,7 @@ endmodule
 
 ---
 # Tutorial Part 2: Datapath Synthesis
-[Back to the slides](TODO)!
+[Back to the slides](CIRCT_DEMO_2026_SLIDES.pdf)!
 1. Convert to `datapath`
 2. Logic synthesis
 3. Generate AIGER format
